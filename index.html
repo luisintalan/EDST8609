@@ -113,9 +113,9 @@
   }
   .tab.pulse { border-color: var(--orange); color: var(--orange); animation: tabPulse 1.3s ease-out infinite; }
 
-  .panel { display: none; flex: 1; opacity: 0; transform: translateY(8px); transition: opacity 0.28s ease, transform 0.28s ease; }
+  .panel { display: none; flex: 1; opacity: 0; transition: opacity 0.28s ease; }
   .panel.active { display: flex; flex-direction: column; align-items: center; gap: 26px; }
-  .panel.active.show { opacity: 1; transform: translateY(0); }
+  .panel.active.show { opacity: 1; }
 
   .stage {
     display: grid;
