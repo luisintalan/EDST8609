@@ -107,9 +107,15 @@
     border-color: var(--orange);
     background: #2A1F10;
   }
+  @keyframes tabPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,165,61,0.55); }
+    50% { box-shadow: 0 0 0 9px rgba(255,165,61,0); }
+  }
+  .tab.pulse { border-color: var(--orange); color: var(--orange); animation: tabPulse 1.3s ease-out infinite; }
 
-  .panel { display: none; flex: 1; }
+  .panel { display: none; flex: 1; opacity: 0; transform: translateY(8px); transition: opacity 0.28s ease, transform 0.28s ease; }
   .panel.active { display: flex; flex-direction: column; align-items: center; gap: 26px; }
+  .panel.active.show { opacity: 1; transform: translateY(0); }
 
   .stage {
     display: grid;
@@ -158,10 +164,26 @@
     font-size: 13px; font-weight: 700; color: var(--text-dim);
     transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
   }
+  @keyframes zoneIdlePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(84,120,189,0.38); }
+    50% { box-shadow: 0 0 0 6px rgba(84,120,189,0); }
+  }
+  .dropzone:not(.filled) { animation: zoneIdlePulse 2.6s ease-in-out infinite; }
+  .dropzone.hover-ok, .dropzone.hover-bad { animation: none; }
   .dropzone.hover-ok { border-color: var(--green); background: rgba(46,213,115,0.12); transform: scale(1.08); }
   .dropzone.hover-bad { border-color: var(--red); background: rgba(255,71,87,0.10); }
-  .dropzone.filled { border-style: solid; border-color: var(--red); }
+  .dropzone.filled { border-style: solid; border-color: var(--red); animation: none; }
   .dropzone.filled.verdict-green { border-color: var(--green); }
+  @keyframes zoneJustPlacedRed {
+    0% { box-shadow: 0 0 0 0 rgba(255,71,87,0.55); }
+    100% { box-shadow: 0 0 0 18px rgba(255,71,87,0); }
+  }
+  @keyframes zoneJustPlacedGreen {
+    0% { box-shadow: 0 0 0 0 rgba(46,213,115,0.55); }
+    100% { box-shadow: 0 0 0 18px rgba(46,213,115,0); }
+  }
+  .dropzone.just-placed { animation: zoneJustPlacedRed 0.6s ease-out; }
+  .dropzone.just-placed.verdict-green { animation-name: zoneJustPlacedGreen; }
 
   .line-content { flex: 1; padding-top: 2px; }
   .from-label { color: var(--text-muted); font-family: var(--mono); font-size: 13px; }
@@ -243,10 +265,14 @@
     color: #fff; background: var(--red);
     cursor: grab;
     box-shadow: 0 6px 16px rgba(0,0,0,0.4);
-    transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.2s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
   }
   .chip.wide { width: auto; height: auto; border-radius: 24px; padding: 13px 18px; font-size: 12.5px; letter-spacing: 0.02em; }
   .chip:active { cursor: grabbing; }
+  .chip:not(.dragging):not(.placed):hover {
+    transform: translateY(-4px) scale(1.06);
+    box-shadow: 0 14px 28px rgba(0,0,0,0.5);
+  }
   @keyframes shake {
     10%, 90% { transform: translateX(-2px); }
     20%, 80% { transform: translateX(4px); }
@@ -273,8 +299,40 @@
   .placed-chip-icon {
     width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
     font-weight: 800; font-size: 14px; color: #fff; background: var(--red);
+    animation: popIn 0.35s cubic-bezier(.2,1.5,.4,1);
   }
   .placed-chip-icon.verdict-green { background: var(--green); color: #08150E; }
+  @keyframes popIn {
+    0% { transform: scale(0.3); opacity: 0; }
+    60% { transform: scale(1.18); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ---- drag-affordance ghost demo ---- */
+  .drag-hint {
+    position: fixed; top: 0; left: 0; width: 56px; height: 56px;
+    pointer-events: none; z-index: 800; opacity: 0;
+  }
+  .drag-hint.active { animation: dragDemoLoop 2.8s ease-in-out infinite; }
+  .hint-chip {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--red); color: #fff; font-family: var(--sans); font-weight: 800; font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.55);
+  }
+  .hint-hand {
+    position: absolute; right: -16px; bottom: -18px; font-size: 30px;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+  }
+  @keyframes dragDemoLoop {
+    0%   { opacity: 0;   transform: translate(var(--sx), var(--sy)) scale(1); }
+    9%   { opacity: 0.85; transform: translate(var(--sx), var(--sy)) scale(1); }
+    22%  { opacity: 0.85; transform: translate(var(--sx), var(--sy)) scale(0.86); }
+    48%  { opacity: 0.85; transform: translate(var(--ex), var(--ey)) scale(0.86); }
+    60%  { opacity: 0.85; transform: translate(var(--ex), var(--ey)) scale(1); }
+    72%  { opacity: 0;   transform: translate(var(--ex), var(--ey)) scale(1); }
+    100% { opacity: 0;   transform: translate(var(--sx), var(--sy)) scale(1); }
+  }
 </style>
 </head>
 <body>
@@ -307,7 +365,7 @@
         <div class="card-body">
 
           <div class="msg-line">
-            <div class="zone-slot"><div class="dropzone" data-zone="sender" data-expect="S">?</div></div>
+            <div class="zone-slot"><div class="dropzone" data-zone="sender" data-expect="S" style="animation-delay:0s">?</div></div>
             <div class="line-content">
               <span class="from-label">From: </span><span class="from-value">billing-update@netflix-billing-support.com</span>
             </div>
@@ -316,7 +374,7 @@
           <div class="subject" style="margin-left:52px;">Streaming Account Billing Notice</div>
 
           <div class="msg-line">
-            <div class="zone-slot"><div class="dropzone" data-zone="threat" data-expect="T">?</div></div>
+            <div class="zone-slot"><div class="dropzone" data-zone="threat" data-expect="T" style="animation-delay:0.2s">?</div></div>
             <div class="line-content body-text">
               <p>Your payment could not be processed.</p>
               <p>Update your payment details to avoid losing access.</p>
@@ -324,12 +382,12 @@
           </div>
 
           <div class="msg-line">
-            <div class="zone-slot"><div class="dropzone" data-zone="link" data-expect="O">?</div></div>
+            <div class="zone-slot"><div class="dropzone" data-zone="link" data-expect="O" style="animation-delay:0.4s">?</div></div>
             <div class="line-content"><span class="link-text">🔗 netflix-billing-support.com/update</span></div>
           </div>
 
           <div class="msg-line">
-            <div class="zone-slot"><div class="dropzone" data-zone="button" data-expect="P">?</div></div>
+            <div class="zone-slot"><div class="dropzone" data-zone="button" data-expect="P" style="animation-delay:0.6s">?</div></div>
             <div class="line-content"><span class="fake-btn">Update payment</span></div>
           </div>
 
@@ -355,7 +413,7 @@
     </div>
 
     <div class="tray-wrap">
-      <div class="tray-label">DRAG A FLAG</div>
+      <div class="tray-label" id="tray-label-A">DRAG A FLAG</div>
       <div class="tray" id="tray-A"></div>
     </div>
     <div class="reset-row"><button class="reset-btn" data-reset="A">Reset Message A</button></div>
@@ -421,6 +479,10 @@
 </div>
 
 <div class="confetti-layer" id="confetti"></div>
+<div class="drag-hint" id="dragHint">
+  <div class="hint-chip">S</div>
+  <div class="hint-hand">👆</div>
+</div>
 
 <script>
 (function () {
@@ -448,15 +510,29 @@
   buildTray(document.getElementById('tray-A'), CHIP_DEFS);
   buildTray(document.getElementById('tray-B'), VERDICT_ONLY_DEFS);
 
-  // ---- tabs ----
+  // ---- tabs (with crossfade + drag-hint handoff + pulse clearing) ----
   document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
-    });
+    tab.addEventListener('click', () => switchToTab(tab.dataset.tab));
   });
+
+  function switchToTab(key) {
+    document.querySelectorAll('.tab').forEach(t => {
+      const isTarget = t.dataset.tab === key;
+      t.classList.toggle('active', isTarget);
+      if (isTarget) t.classList.remove('pulse');
+    });
+    document.querySelectorAll('.panel').forEach(p => {
+      if (p.id === 'panel-' + key) {
+        p.classList.add('active');
+        p.classList.remove('show');
+        void p.offsetWidth; // force reflow so the fade-in transition replays
+        requestAnimationFrame(() => p.classList.add('show'));
+      } else {
+        p.classList.remove('active', 'show');
+      }
+    });
+    setTimeout(refreshHintVisibility, 60);
+  }
 
   // ---- reset ----
   document.querySelectorAll('[data-reset]').forEach(btn => {
@@ -480,12 +556,18 @@
     const notesEl = document.getElementById('notes-' + key);
     notesEl.querySelectorAll('.case-note').forEach(n => n.classList.remove('revealed'));
     document.getElementById('notes-' + key + '-empty').style.display = '';
+    if (key === 'A') {
+      updateProgress('A');
+      const tabB = document.querySelector('.tab[data-tab="B"]');
+      if (tabB) tabB.classList.remove('pulse');
+    }
   }
 
   // ---- drag logic (pointer events, cross-device) ----
   function makeDraggable(chip) {
     chip.addEventListener('pointerdown', (e) => {
       if (chip.classList.contains('placed')) return;
+      dismissHint();
       e.preventDefault();
       const rect = chip.getBoundingClientRect();
       const offsetX = e.clientX - rect.left;
@@ -565,6 +647,8 @@
     const isVerdict = zone.dataset.zone === 'verdict';
     const isGreen = chip.dataset.chip === 'GREEN';
     if (isVerdict && isGreen) zone.classList.add('verdict-green');
+    zone.classList.add('just-placed');
+    zone.addEventListener('animationend', () => zone.classList.remove('just-placed'), { once: true });
 
     const icon = document.createElement('div');
     icon.className = 'placed-chip-icon' + (isGreen ? ' verdict-green' : '');
@@ -581,11 +665,27 @@
 
     // reveal the matching pre-ordered case note (always renders in S,T,O,P source order, never drop order)
     revealNote(key, chip.dataset.chip);
+    updateProgress(key);
 
     if (isVerdict) {
       document.getElementById('banner-' + key).classList.add('show');
       burstConfetti();
+      if (key === 'A') {
+        const tabB = document.querySelector('.tab[data-tab="B"]');
+        if (tabB && !tabB.classList.contains('active')) tabB.classList.add('pulse');
+      }
     }
+  }
+
+  function updateProgress(key) {
+    if (key !== 'A') return; // only Message A has letter flags to count
+    const total = 4;
+    const found = document.querySelectorAll('#notes-A .case-note.revealed').length;
+    const label = document.getElementById('tray-label-A');
+    if (!label) return;
+    if (found <= 0) label.textContent = 'DRAG A FLAG';
+    else if (found < total) label.textContent = `DRAG A FLAG · ${found}/${total} found`;
+    else label.textContent = `ALL ${total} FOUND — NOW YOUR VERDICT`;
   }
 
   function revealNote(key, chipId) {
@@ -634,6 +734,58 @@
       layer.appendChild(el);
       setTimeout(() => el.remove(), (parseFloat(duration) + parseFloat(delay)) * 1000 + 60);
     }
+  }
+
+  // ---- one-time drag affordance: a translucent hand ghost-drags the S chip into place ----
+  const HINT_KEY = 'stopDetectiveHintSeen';
+  let hintDismissed = false;
+  try { hintDismissed = localStorage.getItem(HINT_KEY) === '1'; } catch (e) { /* storage unavailable, hint will just show once per load */ }
+
+  function positionHint() {
+    const hint = document.getElementById('dragHint');
+    const chipS = document.querySelector('#tray-A [data-chip="S"]');
+    const zoneSender = document.querySelector('[data-zone="sender"]');
+    if (!hint || !chipS || !zoneSender) return false;
+    const c = chipS.getBoundingClientRect();
+    const z = zoneSender.getBoundingClientRect();
+    if (c.width === 0 || z.width === 0) return false; // target not currently visible
+    const hw = 28; // half of the 56px hint element, to center it
+    hint.style.setProperty('--sx', (c.left + c.width / 2 - hw) + 'px');
+    hint.style.setProperty('--sy', (c.top + c.height / 2 - hw) + 'px');
+    hint.style.setProperty('--ex', (z.left + z.width / 2 - hw) + 'px');
+    hint.style.setProperty('--ey', (z.top + z.height / 2 - hw) + 'px');
+    return true;
+  }
+
+  function refreshHintVisibility() {
+    if (hintDismissed) return;
+    const hint = document.getElementById('dragHint');
+    const panelA = document.getElementById('panel-A');
+    if (!hint || !panelA) return;
+    const aVisible = panelA.classList.contains('active');
+    if (aVisible && positionHint()) {
+      hint.classList.add('active');
+    } else {
+      hint.classList.remove('active');
+    }
+  }
+
+  function dismissHint() {
+    if (hintDismissed) return;
+    hintDismissed = true;
+    try { localStorage.setItem(HINT_KEY, '1'); } catch (e) { /* best effort */ }
+    const hint = document.getElementById('dragHint');
+    if (hint) hint.remove();
+  }
+
+  window.addEventListener('resize', () => { if (!hintDismissed) refreshHintVisibility(); });
+
+  // ---- initial setup ----
+  requestAnimationFrame(() => {
+    document.getElementById('panel-A').classList.add('show');
+  });
+  if (!hintDismissed) {
+    setTimeout(refreshHintVisibility, 900);
   }
 })();
 </script>
