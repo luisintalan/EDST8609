@@ -176,6 +176,29 @@
   }
   .hint-card b { color: var(--text); }
 
+  .case-notes {
+    background: var(--card-alt); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 18px; min-height: 96px;
+  }
+  .case-notes-title {
+    font-size: 12px; font-weight: 700; color: var(--text-dim); letter-spacing: 0.08em; margin-bottom: 10px;
+  }
+  .case-notes-empty { font-size: 13px; color: var(--text-muted); line-height: 1.6; font-style: italic; }
+  .case-note {
+    display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px;
+    opacity: 0; transform: translateY(4px);
+    animation: noteIn 0.35s ease forwards;
+  }
+  .case-note:last-child { margin-bottom: 0; }
+  @keyframes noteIn { to { opacity: 1; transform: translateY(0); } }
+  .case-note .note-icon {
+    flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; color: #fff; background: var(--red);
+  }
+  .case-note.ok .note-icon { background: var(--green); color: #08150E; }
+  .case-note .note-text { font-size: 13.5px; color: var(--text); line-height: 1.5; padding-top: 2px; }
+
   .tray-wrap { width: 100%; }
   .tray-label {
     text-align: center; font-size: 12px; color: var(--text-dim); font-weight: 700;
@@ -282,7 +305,10 @@
       </div>
 
       <div class="side-col">
-        <div class="hint-card"><b>Find:</b> Sender, Threats, Online link, Personal information — then drag your verdict onto the message.</div>
+        <div class="case-notes" id="notes-A">
+          <div class="case-notes-title">CASE NOTES</div>
+          <div class="case-notes-empty" id="notes-A-empty">Drag S, T, O, P onto the message to build your case — each one explains itself when it's right.</div>
+        </div>
         <div class="banner red" id="banner-A">🚩 RED FLAG — DON'T CLICK</div>
       </div>
     </div>
@@ -335,7 +361,10 @@
       </div>
 
       <div class="side-col">
-        <div class="hint-card"><b>No S / T / O / P zones here on purpose</b> — decide whether this message actually has a red flag, then drag your verdict onto it.</div>
+        <div class="case-notes" id="notes-B">
+          <div class="case-notes-title">CASE NOTES</div>
+          <div class="case-notes-empty" id="notes-B-empty">No S / T / O / P zones here — decide if this one's actually safe.</div>
+        </div>
         <div class="banner green" id="banner-B">✅ GREEN LIGHT — NO RED FLAGS</div>
       </div>
     </div>
@@ -359,9 +388,22 @@
     { id: 'RED', label: '🚩 RED FLAG', cls: 'verdict-red wide' },
     { id: 'GREEN', label: '✅ GREEN LIGHT', cls: 'verdict-green wide' },
   ];
+  const VERDICT_ONLY_DEFS = CHIP_DEFS.filter(d => d.id === 'RED' || d.id === 'GREEN');
 
-  function buildTray(trayEl) {
-    CHIP_DEFS.forEach(def => {
+  const EXPLAIN = {
+    A: {
+      S: "Sender doesn't match Netflix's real domain (netflix.com).",
+      T: "Creates urgency — threatens lost access to rush your response.",
+      O: "Link goes to netflix-billing-support.com, not netflix.com.",
+      P: "Asks you to hand over payment details directly in the message.",
+    },
+    B: {
+      GREEN: "citylibrary.gov.au is a verified government domain — extremely hard to fake. No urgency, no request for personal information.",
+    },
+  };
+
+  function buildTray(trayEl, defs) {
+    defs.forEach(def => {
       const chip = document.createElement('div');
       chip.className = 'chip ' + def.cls;
       chip.dataset.chip = def.id;
@@ -371,8 +413,8 @@
     });
   }
 
-  buildTray(document.getElementById('tray-A'));
-  buildTray(document.getElementById('tray-B'));
+  buildTray(document.getElementById('tray-A'), CHIP_DEFS);
+  buildTray(document.getElementById('tray-B'), VERDICT_ONLY_DEFS);
 
   // ---- tabs ----
   document.querySelectorAll('.tab').forEach(tab => {
@@ -403,6 +445,9 @@
       c.style.transform = '';
     });
     document.getElementById('banner-' + key).classList.remove('show');
+    const notesEl = document.getElementById('notes-' + key);
+    notesEl.querySelectorAll('.case-note').forEach(n => n.remove());
+    document.getElementById('notes-' + key + '-empty').style.display = '';
   }
 
   // ---- drag logic (pointer events, cross-device) ----
@@ -500,10 +545,26 @@
     chip.style.top = '';
     chip.classList.add('placed');
 
+    const key = activePanelOf(chip).id.replace('panel-', '');
+
+    // add a case note explaining WHY, for both letter flags and the message-B verdict
+    const reason = (EXPLAIN[key] || {})[chip.dataset.chip];
+    if (reason) addCaseNote(key, chip.dataset.chip, reason, isGreen);
+
     if (isVerdict) {
-      const key = activePanelOf(chip).id.replace('panel-', '');
       document.getElementById('banner-' + key).classList.add('show');
     }
+  }
+
+  function addCaseNote(key, chipId, reason, isGood) {
+    const emptyEl = document.getElementById('notes-' + key + '-empty');
+    if (emptyEl) emptyEl.style.display = 'none';
+    const notesEl = document.getElementById('notes-' + key);
+    const row = document.createElement('div');
+    row.className = 'case-note' + (isGood ? ' ok' : '');
+    const iconLabel = chipId === 'RED' ? '🚩' : chipId === 'GREEN' ? '✅' : chipId;
+    row.innerHTML = '<div class="note-icon">' + iconLabel + '</div><div class="note-text">' + reason + '</div>';
+    notesEl.appendChild(row);
   }
 
   function returnToTray(chip) {
