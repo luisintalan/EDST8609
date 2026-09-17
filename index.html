@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<title>STOP Detective</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080C18;
+    --card: #1A2540;
+    --card-alt: #202F52;
+    --border: #3E5285;
+    --border-light: #5478BD;
+    --text: #F2F5FA;
+    --text-muted: #9FACC9;
+    --text-dim: #5A6478;
+    --red: #FF4757;
+    --orange: #FFA53D;
+    --green: #2ED573;
+    --blue: #4C8DFF;
+    --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', 'Courier New', monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="light"]) { /* app is intentionally dark-only regardless of system theme */ }
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    background: var(--bg); color: var(--text);
+    font-family: var(--sans);
+    overflow-x: hidden;
+  }
+
+  .app {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 24px 40px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header { text-align: center; margin-bottom: 20px; }
+  header h1 {
+    margin: 0 0 6px;
+    font-size: clamp(22px, 3.2vw, 30px);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+  header p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 15px;
+    font-style: italic;
+  }
+
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 22px 0 26px;
+  }
+  .tab {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    background: var(--card-alt);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 22px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .tab:hover { border-color: var(--border-light); color: var(--text); }
+  .tab.active {
+    color: var(--orange);
+    border-color: var(--orange);
+    background: #2A1F10;
+  }
+
+  .panel { display: none; flex: 1; }
+  .panel.active { display: flex; flex-direction: column; align-items: center; gap: 26px; }
+
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(300px, 620px) 1fr;
+    gap: 26px;
+    width: 100%;
+    align-items: start;
+  }
+  @media (max-width: 760px) {
+    .stage { grid-template-columns: 1fr; }
+  }
+
+  .card-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+  }
+  .chrome {
+    background: var(--card-alt);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chrome .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .chrome .dot.r { background: var(--red); }
+  .chrome .dot.o { background: var(--orange); }
+  .chrome .dot.g { background: var(--green); }
+  .chrome .label { margin-left: 8px; font-size: 12px; color: var(--text-dim); }
+
+  .card-body { padding: 22px 20px 26px; }
+
+  .msg-line { position: relative; display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+  .msg-line.tight { margin-bottom: 6px; }
+  .zone-slot { width: 40px; flex-shrink: 0; display: flex; justify-content: center; padding-top: 2px; }
+  .zone-slot.hidden-slot { visibility: hidden; }
+
+  .dropzone {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 2px dashed var(--border-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: var(--text-dim);
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  }
+  .dropzone.hover-ok { border-color: var(--green); background: rgba(46,213,115,0.12); transform: scale(1.08); }
+  .dropzone.hover-bad { border-color: var(--red); background: rgba(255,71,87,0.10); }
+  .dropzone.filled { border-style: solid; border-color: var(--red); }
+  .dropzone.filled.verdict-green { border-color: var(--green); }
+
+  .line-content { flex: 1; padding-top: 2px; }
+  .from-label { color: var(--text-muted); font-family: var(--mono); font-size: 13px; }
+  .from-value { color: var(--text-muted); font-family: var(--mono); font-size: 13px; }
+  .subject { font-weight: 700; font-size: 18px; margin: 2px 0 14px; }
+  .body-text p { margin: 0 0 6px; color: var(--text-muted); font-size: 14px; line-height: 1.5; }
+  .link-text { font-family: var(--mono); font-size: 13px; color: var(--text-dim); }
+  .fake-btn {
+    display: inline-block; font-family: var(--sans); font-weight: 700; font-size: 13px;
+    color: var(--bg); background: var(--orange); border: none; border-radius: 24px;
+    padding: 11px 22px; cursor: default;
+  }
+
+  .verdict-row {
+    margin-top: 20px; padding-top: 18px; border-top: 1px dashed var(--border);
+    display: flex; align-items: center; gap: 14px;
+  }
+  .verdict-row .verdict-label { font-size: 13px; color: var(--text-muted); }
+
+  .side-col { display: flex; flex-direction: column; gap: 16px; }
+
+  .banner {
+    border-radius: 10px; border: 1px solid var(--border); padding: 16px 18px;
+    font-weight: 700; font-size: 15px; text-align: center;
+    opacity: 0; transform: translateY(-6px); transition: opacity 0.25s ease, transform 0.25s ease;
+    letter-spacing: 0.02em;
+  }
+  .banner.show { opacity: 1; transform: translateY(0); }
+  .banner.red { background: #2A1414; border-color: var(--red); color: var(--red); }
+  .banner.green { background: #12271C; border-color: var(--green); color: var(--green); }
+
+  .hint-card {
+    background: var(--card-alt); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 18px; font-size: 13px; color: var(--text-muted); line-height: 1.6;
+  }
+  .hint-card b { color: var(--text); }
+
+  .tray-wrap { width: 100%; }
+  .tray-label {
+    text-align: center; font-size: 12px; color: var(--text-dim); font-weight: 700;
+    letter-spacing: 0.08em; margin-bottom: 12px;
+  }
+  .tray {
+    display: flex; justify-content: center; align-items: center; gap: 16px; flex-wrap: wrap;
+    min-height: 72px;
+  }
+
+  .chip {
+    touch-action: none;
+    user-select: none;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--sans); font-weight: 800; font-size: 18px;
+    color: #fff; background: var(--red);
+    cursor: grab;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.2s ease;
+  }
+  .chip.wide { width: auto; height: auto; border-radius: 24px; padding: 13px 18px; font-size: 12.5px; letter-spacing: 0.02em; }
+  .chip:active { cursor: grabbing; }
+  .chip.dragging { box-shadow: 0 16px 32px rgba(0,0,0,0.55); z-index: 500; }
+  .chip.placed {
+    opacity: 0; pointer-events: none;
+    width: 0; height: 0; margin: 0; padding: 0; border: 0; overflow: hidden;
+  }
+  .chip.verdict-red { background: var(--red); }
+  .chip.verdict-green { background: var(--green); color: #08150E; }
+
+  .reset-row { display: flex; justify-content: center; margin-top: 6px; }
+  .reset-btn {
+    font-family: var(--sans); font-weight: 600; font-size: 12.5px; color: var(--text-muted);
+    background: transparent; border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 16px; cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .reset-btn:hover { border-color: var(--border-light); color: var(--text); }
+
+  .placed-chip-icon {
+    width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px; color: #fff; background: var(--red);
+  }
+  .placed-chip-icon.verdict-green { background: var(--green); color: #08150E; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>🔍 STOP Detective</h1>
+    <p>Drag each flag onto the message. Then decide: red flag, or green light?</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="A">MESSAGE A</button>
+    <button class="tab" data-tab="B">MESSAGE B</button>
+  </div>
+
+  <!-- ============= MESSAGE A ============= -->
+  <div class="panel active" id="panel-A">
+    <div class="stage">
+      <div class="card-wrap">
+        <div class="chrome">
+          <span class="dot r"></span><span class="dot o"></span><span class="dot g"></span>
+          <span class="label">Messages</span>
+        </div>
+        <div class="card-body">
+
+          <div class="msg-line">
+            <div class="zone-slot"><div class="dropzone" data-zone="sender" data-expect="S">?</div></div>
+            <div class="line-content">
+              <span class="from-label">From: </span><span class="from-value">billing-update@netflix-billing-support.com</span>
+            </div>
+          </div>
+
+          <div class="subject" style="margin-left:52px;">Streaming Account Billing Notice</div>
+
+          <div class="msg-line">
+            <div class="zone-slot"><div class="dropzone" data-zone="threat" data-expect="T">?</div></div>
+            <div class="line-content body-text">
+              <p>Your payment could not be processed.</p>
+              <p>Update your payment details to avoid losing access.</p>
+            </div>
+          </div>
+
+          <div class="msg-line">
+            <div class="zone-slot"><div class="dropzone" data-zone="link" data-expect="O">?</div></div>
+            <div class="line-content"><span class="link-text">🔗 netflix-billing-support.com/update</span></div>
+          </div>
+
+          <div class="msg-line">
+            <div class="zone-slot"><div class="dropzone" data-zone="button" data-expect="P">?</div></div>
+            <div class="line-content"><span class="fake-btn">Update payment</span></div>
+          </div>
+
+          <div class="verdict-row">
+            <div class="zone-slot"><div class="dropzone" data-zone="verdict" data-expect="RED">?</div></div>
+            <span class="verdict-label">Your verdict — drag one:</span>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="side-col">
+        <div class="hint-card"><b>Find:</b> Sender, Threats, Online link, Personal information — then drag your verdict onto the message.</div>
+        <div class="banner red" id="banner-A">🚩 RED FLAG — DON'T CLICK</div>
+      </div>
+    </div>
+
+    <div class="tray-wrap">
+      <div class="tray-label">DRAG A FLAG</div>
+      <div class="tray" id="tray-A"></div>
+    </div>
+    <div class="reset-row"><button class="reset-btn" data-reset="A">Reset Message A</button></div>
+  </div>
+
+  <!-- ============= MESSAGE B ============= -->
+  <div class="panel" id="panel-B">
+    <div class="stage">
+      <div class="card-wrap">
+        <div class="chrome">
+          <span class="dot r"></span><span class="dot o"></span><span class="dot g"></span>
+          <span class="label">Messages</span>
+        </div>
+        <div class="card-body">
+
+          <div class="msg-line">
+            <div class="zone-slot hidden-slot"><div class="dropzone">·</div></div>
+            <div class="line-content">
+              <span class="from-label">From: </span><span class="from-value">notifications@citylibrary.gov.au</span>
+            </div>
+          </div>
+
+          <div class="subject" style="margin-left:52px;">City Library</div>
+
+          <div class="msg-line">
+            <div class="zone-slot hidden-slot"><div class="dropzone">·</div></div>
+            <div class="line-content body-text">
+              <p>Your borrowed book is due Friday.</p>
+              <p>View your borrowing details through the library website.</p>
+            </div>
+          </div>
+
+          <div class="msg-line" style="margin-bottom:4px;">
+            <div class="zone-slot hidden-slot"><div class="dropzone">·</div></div>
+            <div class="line-content"><span class="link-text">🔗 citylibrary.gov.au</span></div>
+          </div>
+
+          <div class="verdict-row">
+            <div class="zone-slot"><div class="dropzone" data-zone="verdict" data-expect="GREEN">?</div></div>
+            <span class="verdict-label">Your verdict — drag one:</span>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="side-col">
+        <div class="hint-card"><b>No S / T / O / P zones here on purpose</b> — decide whether this message actually has a red flag, then drag your verdict onto it.</div>
+        <div class="banner green" id="banner-B">✅ GREEN LIGHT — NO RED FLAGS</div>
+      </div>
+    </div>
+
+    <div class="tray-wrap">
+      <div class="tray-label">DRAG A FLAG</div>
+      <div class="tray" id="tray-B"></div>
+    </div>
+    <div class="reset-row"><button class="reset-btn" data-reset="B">Reset Message B</button></div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const CHIP_DEFS = [
+    { id: 'S', label: 'S', cls: '' },
+    { id: 'T', label: 'T', cls: '' },
+    { id: 'O', label: 'O', cls: '' },
+    { id: 'P', label: 'P', cls: '' },
+    { id: 'RED', label: '🚩 RED FLAG', cls: 'verdict-red wide' },
+    { id: 'GREEN', label: '✅ GREEN LIGHT', cls: 'verdict-green wide' },
+  ];
+
+  function buildTray(trayEl) {
+    CHIP_DEFS.forEach(def => {
+      const chip = document.createElement('div');
+      chip.className = 'chip ' + def.cls;
+      chip.dataset.chip = def.id;
+      chip.textContent = def.label;
+      trayEl.appendChild(chip);
+      makeDraggable(chip);
+    });
+  }
+
+  buildTray(document.getElementById('tray-A'));
+  buildTray(document.getElementById('tray-B'));
+
+  // ---- tabs ----
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ---- reset ----
+  document.querySelectorAll('[data-reset]').forEach(btn => {
+    btn.addEventListener('click', () => resetPanel(btn.dataset.reset));
+  });
+
+  function resetPanel(key) {
+    const panel = document.getElementById('panel-' + key);
+    panel.querySelectorAll('.dropzone[data-zone]').forEach(z => {
+      z.classList.remove('filled', 'verdict-green');
+      z.innerHTML = '?';
+    });
+    panel.querySelectorAll('.chip').forEach(c => {
+      c.classList.remove('placed');
+      c.style.position = '';
+      c.style.left = '';
+      c.style.top = '';
+      c.style.transform = '';
+    });
+    document.getElementById('banner-' + key).classList.remove('show');
+  }
+
+  // ---- drag logic (pointer events, cross-device) ----
+  function makeDraggable(chip) {
+    chip.addEventListener('pointerdown', (e) => {
+      if (chip.classList.contains('placed')) return;
+      e.preventDefault();
+      const rect = chip.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const offsetY = e.clientY - rect.top;
+
+      chip.setPointerCapture(e.pointerId);
+      chip.classList.add('dragging');
+      chip.style.position = 'fixed';
+      chip.style.left = rect.left + 'px';
+      chip.style.top = rect.top + 'px';
+      chip.style.margin = '0';
+
+      let currentZone = null;
+
+      function onMove(ev) {
+        const x = ev.clientX - offsetX;
+        const y = ev.clientY - offsetY;
+        chip.style.left = x + 'px';
+        chip.style.top = y + 'px';
+
+        const zone = zoneUnderPoint(ev.clientX, ev.clientY, chip);
+        if (currentZone && currentZone !== zone) {
+          currentZone.classList.remove('hover-ok', 'hover-bad');
+        }
+        if (zone) {
+          const ok = zoneAcceptsChip(zone, chip);
+          zone.classList.toggle('hover-ok', ok);
+          zone.classList.toggle('hover-bad', !ok);
+        }
+        currentZone = zone;
+      }
+
+      function onUp(ev) {
+        chip.releasePointerCapture(e.pointerId);
+        chip.removeEventListener('pointermove', onMove);
+        chip.removeEventListener('pointerup', onUp);
+        chip.classList.remove('dragging');
+        if (currentZone) currentZone.classList.remove('hover-ok', 'hover-bad');
+
+        const zone = zoneUnderPoint(ev.clientX, ev.clientY, chip);
+        if (zone && zoneAcceptsChip(zone, chip)) {
+          placeChip(chip, zone);
+        } else {
+          returnToTray(chip);
+        }
+      }
+
+      chip.addEventListener('pointermove', onMove);
+      chip.addEventListener('pointerup', onUp);
+    });
+  }
+
+  function activePanelOf(chip) {
+    return chip.closest('.panel');
+  }
+
+  function zoneUnderPoint(x, y, chip) {
+    const panel = activePanelOf(chip);
+    const zones = panel.querySelectorAll('.dropzone[data-zone]');
+    for (const z of zones) {
+      if (z.classList.contains('filled')) continue;
+      const r = z.getBoundingClientRect();
+      const pad = 14; // forgiving hit area
+      if (x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad) {
+        return z;
+      }
+    }
+    return null;
+  }
+
+  function zoneAcceptsChip(zone, chip) {
+    return zone.dataset.expect === chip.dataset.chip;
+  }
+
+  function placeChip(chip, zone) {
+    zone.classList.add('filled');
+    const isVerdict = zone.dataset.zone === 'verdict';
+    const isGreen = chip.dataset.chip === 'GREEN';
+    if (isVerdict && isGreen) zone.classList.add('verdict-green');
+
+    const icon = document.createElement('div');
+    icon.className = 'placed-chip-icon' + (isGreen ? ' verdict-green' : '');
+    icon.textContent = chip.dataset.chip === 'RED' ? '🚩' : chip.dataset.chip === 'GREEN' ? '✅' : chip.dataset.chip;
+    zone.innerHTML = '';
+    zone.appendChild(icon);
+
+    chip.style.position = '';
+    chip.style.left = '';
+    chip.style.top = '';
+    chip.classList.add('placed');
+
+    if (isVerdict) {
+      const key = activePanelOf(chip).id.replace('panel-', '');
+      document.getElementById('banner-' + key).classList.add('show');
+    }
+  }
+
+  function returnToTray(chip) {
+    const trayRect = chip.parentElement.getBoundingClientRect();
+    // animate back visually is optional; snap back cleanly
+    chip.style.transition = 'left 0.28s cubic-bezier(.2,.8,.3,1.2), top 0.28s cubic-bezier(.2,.8,.3,1.2)';
+    requestAnimationFrame(() => {
+      chip.style.left = '';
+      chip.style.top = '';
+      chip.style.position = '';
+      setTimeout(() => { chip.style.transition = ''; }, 300);
+    });
+  }
+})();
+</script>
+</body>
+</html>
