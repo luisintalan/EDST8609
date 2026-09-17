@@ -59,6 +59,29 @@
     font-style: italic;
   }
 
+  .legend {
+    display: flex; justify-content: center; gap: 22px; flex-wrap: wrap;
+    margin-top: 16px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .legend-letter {
+    width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+    background: var(--card-alt); border: 1px solid var(--border-light);
+    color: var(--orange); font-weight: 800; font-size: 11.5px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .legend-text { font-size: 12.5px; color: var(--text-muted); }
+
+  .confetti-layer { position: fixed; inset: 0; pointer-events: none; z-index: 900; overflow: hidden; }
+  .confetti-piece {
+    position: absolute; top: -20px; border-radius: 2px;
+    animation-name: confettiFall; animation-timing-function: cubic-bezier(.3,.6,.4,1); animation-fill-mode: forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    100% { transform: translate(var(--drift), 100vh) rotate(var(--rot)); opacity: 0.85; }
+  }
+
   .tabs {
     display: flex;
     justify-content: center;
@@ -185,12 +208,13 @@
   }
   .case-notes-empty { font-size: 13px; color: var(--text-muted); line-height: 1.6; font-style: italic; }
   .case-note {
-    display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px;
-    opacity: 0; transform: translateY(4px);
-    animation: noteIn 0.35s ease forwards;
+    display: none;
+    gap: 10px; align-items: flex-start; margin-bottom: 12px;
+    animation: noteIn 0.35s ease;
   }
+  .case-note.revealed { display: flex; }
   .case-note:last-child { margin-bottom: 0; }
-  @keyframes noteIn { to { opacity: 1; transform: translateY(0); } }
+  @keyframes noteIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
   .case-note .note-icon {
     flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
@@ -223,6 +247,13 @@
   }
   .chip.wide { width: auto; height: auto; border-radius: 24px; padding: 13px 18px; font-size: 12.5px; letter-spacing: 0.02em; }
   .chip:active { cursor: grabbing; }
+  @keyframes shake {
+    10%, 90% { transform: translateX(-2px); }
+    20%, 80% { transform: translateX(4px); }
+    30%, 50%, 70% { transform: translateX(-9px); }
+    40%, 60% { transform: translateX(9px); }
+  }
+  .chip.shake { animation: shake 0.42s ease; }
   .chip.dragging { box-shadow: 0 16px 32px rgba(0,0,0,0.55); z-index: 500; }
   .chip.placed {
     opacity: 0; pointer-events: none;
@@ -252,6 +283,12 @@
   <header>
     <h1>🔍 STOP Detective</h1>
     <p>Drag each flag onto the message. Then decide: red flag, or green light?</p>
+    <div class="legend">
+      <div class="legend-item"><span class="legend-letter">S</span><span class="legend-text">Sender</span></div>
+      <div class="legend-item"><span class="legend-letter">T</span><span class="legend-text">Threats</span></div>
+      <div class="legend-item"><span class="legend-letter">O</span><span class="legend-text">Online link</span></div>
+      <div class="legend-item"><span class="legend-letter">P</span><span class="legend-text">Personal information</span></div>
+    </div>
   </header>
 
   <div class="tabs">
@@ -308,6 +345,10 @@
         <div class="case-notes" id="notes-A">
           <div class="case-notes-title">CASE NOTES</div>
           <div class="case-notes-empty" id="notes-A-empty">Drag S, T, O, P onto the message to build your case — each one explains itself when it's right.</div>
+          <div class="case-note" data-note="S" id="note-A-S"><div class="note-icon">S</div><div class="note-text">Sender doesn't match Netflix's real domain (netflix.com).</div></div>
+          <div class="case-note" data-note="T" id="note-A-T"><div class="note-icon">T</div><div class="note-text">Creates urgency — threatens lost access to rush your response.</div></div>
+          <div class="case-note" data-note="O" id="note-A-O"><div class="note-icon">O</div><div class="note-text">Link goes to netflix-billing-support.com, not netflix.com.</div></div>
+          <div class="case-note" data-note="P" id="note-A-P"><div class="note-icon">P</div><div class="note-text">Asks you to hand over payment details directly in the message.</div></div>
         </div>
         <div class="banner red" id="banner-A">🚩 RED FLAG — DON'T CLICK</div>
       </div>
@@ -364,6 +405,7 @@
         <div class="case-notes" id="notes-B">
           <div class="case-notes-title">CASE NOTES</div>
           <div class="case-notes-empty" id="notes-B-empty">No S / T / O / P zones here — decide if this one's actually safe.</div>
+          <div class="case-note ok" data-note="GREEN" id="note-B-GREEN"><div class="note-icon">✅</div><div class="note-text">citylibrary.gov.au is a verified government domain — extremely hard to fake. No urgency, no request for personal information.</div></div>
         </div>
         <div class="banner green" id="banner-B">✅ GREEN LIGHT — NO RED FLAGS</div>
       </div>
@@ -378,6 +420,8 @@
 
 </div>
 
+<div class="confetti-layer" id="confetti"></div>
+
 <script>
 (function () {
   const CHIP_DEFS = [
@@ -389,18 +433,6 @@
     { id: 'GREEN', label: '✅ GREEN LIGHT', cls: 'verdict-green wide' },
   ];
   const VERDICT_ONLY_DEFS = CHIP_DEFS.filter(d => d.id === 'RED' || d.id === 'GREEN');
-
-  const EXPLAIN = {
-    A: {
-      S: "Sender doesn't match Netflix's real domain (netflix.com).",
-      T: "Creates urgency — threatens lost access to rush your response.",
-      O: "Link goes to netflix-billing-support.com, not netflix.com.",
-      P: "Asks you to hand over payment details directly in the message.",
-    },
-    B: {
-      GREEN: "citylibrary.gov.au is a verified government domain — extremely hard to fake. No urgency, no request for personal information.",
-    },
-  };
 
   function buildTray(trayEl, defs) {
     defs.forEach(def => {
@@ -446,7 +478,7 @@
     });
     document.getElementById('banner-' + key).classList.remove('show');
     const notesEl = document.getElementById('notes-' + key);
-    notesEl.querySelectorAll('.case-note').forEach(n => n.remove());
+    notesEl.querySelectorAll('.case-note').forEach(n => n.classList.remove('revealed'));
     document.getElementById('notes-' + key + '-empty').style.display = '';
   }
 
@@ -497,7 +529,7 @@
         if (zone && zoneAcceptsChip(zone, chip)) {
           placeChip(chip, zone);
         } else {
-          returnToTray(chip);
+          returnToTray(chip, /* wasWrong */ true);
         }
       }
 
@@ -547,29 +579,28 @@
 
     const key = activePanelOf(chip).id.replace('panel-', '');
 
-    // add a case note explaining WHY, for both letter flags and the message-B verdict
-    const reason = (EXPLAIN[key] || {})[chip.dataset.chip];
-    if (reason) addCaseNote(key, chip.dataset.chip, reason, isGreen);
+    // reveal the matching pre-ordered case note (always renders in S,T,O,P source order, never drop order)
+    revealNote(key, chip.dataset.chip);
 
     if (isVerdict) {
       document.getElementById('banner-' + key).classList.add('show');
+      burstConfetti();
     }
   }
 
-  function addCaseNote(key, chipId, reason, isGood) {
+  function revealNote(key, chipId) {
+    const note = document.getElementById('note-' + key + '-' + chipId);
+    if (!note) return;
     const emptyEl = document.getElementById('notes-' + key + '-empty');
     if (emptyEl) emptyEl.style.display = 'none';
-    const notesEl = document.getElementById('notes-' + key);
-    const row = document.createElement('div');
-    row.className = 'case-note' + (isGood ? ' ok' : '');
-    const iconLabel = chipId === 'RED' ? '🚩' : chipId === 'GREEN' ? '✅' : chipId;
-    row.innerHTML = '<div class="note-icon">' + iconLabel + '</div><div class="note-text">' + reason + '</div>';
-    notesEl.appendChild(row);
+    note.classList.add('revealed');
   }
 
-  function returnToTray(chip) {
-    const trayRect = chip.parentElement.getBoundingClientRect();
-    // animate back visually is optional; snap back cleanly
+  function returnToTray(chip, wasWrong) {
+    if (wasWrong) {
+      chip.classList.add('shake');
+      chip.addEventListener('animationend', () => chip.classList.remove('shake'), { once: true });
+    }
     chip.style.transition = 'left 0.28s cubic-bezier(.2,.8,.3,1.2), top 0.28s cubic-bezier(.2,.8,.3,1.2)';
     requestAnimationFrame(() => {
       chip.style.left = '';
@@ -577,6 +608,32 @@
       chip.style.position = '';
       setTimeout(() => { chip.style.transition = ''; }, 300);
     });
+  }
+
+  function burstConfetti() {
+    const colors = ['#FF4757', '#FFA53D', '#2ED573', '#4C8DFF', '#F2F5FA'];
+    const layer = document.getElementById('confetti');
+    const count = 70;
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      const startX = 50 + (Math.random() * 70 - 35); // vw, centered spread
+      const drift = (Math.random() * 240 - 120) + 'px';
+      const rotate = (Math.random() * 720 - 360) + 'deg';
+      const duration = (1.0 + Math.random() * 1.0).toFixed(2);
+      const delay = (Math.random() * 0.2).toFixed(2);
+      const size = 5 + Math.random() * 7;
+      el.style.left = startX + 'vw';
+      el.style.width = size + 'px';
+      el.style.height = (size * 0.42) + 'px';
+      el.style.background = colors[Math.floor(Math.random() * colors.length)];
+      el.style.setProperty('--drift', drift);
+      el.style.setProperty('--rot', rotate);
+      el.style.animationDuration = duration + 's';
+      el.style.animationDelay = delay + 's';
+      layer.appendChild(el);
+      setTimeout(() => el.remove(), (parseFloat(duration) + parseFloat(delay)) * 1000 + 60);
+    }
   }
 })();
 </script>
